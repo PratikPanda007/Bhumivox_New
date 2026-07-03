@@ -1,0 +1,5 @@
+[
+  { "key": "user", "label": "Traveller", "permissions": ["plan:create", "profile:edit"] },
+  { "key": "admin", "label": "Studio Admin", "permissions": ["plan:create", "profile:edit", "admin:requests", "admin:quotations"] },
+  { "key": "super_admin", "label": "Super Admin", "permissions": ["*"] }
+]

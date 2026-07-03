@@ -1,0 +1,66 @@
+import { Routes, Route, Outlet } from "react-router-dom";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import NotFound from "@/components/NotFound";
+import { RequireAuth } from "@/components/RequireAuth";
+
+import Home from "@/routes/index";
+import About from "@/routes/about";
+import Contact from "@/routes/contact";
+import Experiences from "@/routes/experiences";
+import Intelligence from "@/routes/intelligence";
+import Journal from "@/routes/journal";
+import Plan from "@/routes/plan";
+import WhyBhumivox from "@/routes/why-bhumivox";
+import DestinationsIndex from "@/routes/destinations.index";
+import DestinationDetail from "@/routes/destinations.$slug";
+import JourneysIndex from "@/routes/journeys.index";
+import JourneyDetail from "@/routes/journeys.$slug";
+import AdminLogin from "@/routes/admin";
+import AdminRequests from "@/routes/admin.requests";
+import AdminDashboard from "@/routes/admin.dashboard";
+import Login from "@/routes/login";
+import Signup from "@/routes/signup";
+import Settings from "@/routes/settings";
+import MyBookings from "@/routes/my-bookings";
+
+function Layout() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <SiteHeader />
+      <main>
+        <Outlet />
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/experiences" element={<Experiences />} />
+        <Route path="/intelligence" element={<Intelligence />} />
+        <Route path="/journal" element={<Journal />} />
+        <Route path="/plan" element={<RequireAuth><Plan /></RequireAuth>} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/my-bookings" element={<MyBookings />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/why-bhumivox" element={<WhyBhumivox />} />
+        <Route path="/destinations" element={<DestinationsIndex />} />
+        <Route path="/destinations/:slug" element={<DestinationDetail />} />
+        <Route path="/journeys" element={<JourneysIndex />} />
+        <Route path="/journeys/:slug" element={<JourneyDetail />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+      <Route path="/admin" element={<AdminLogin />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/requests" element={<AdminRequests />} />
+    </Routes>
+  );
+}

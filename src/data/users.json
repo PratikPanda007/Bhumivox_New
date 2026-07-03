@@ -1,0 +1,22 @@
+[
+  {
+    "id": "u_demo",
+    "name": "Demo Traveller",
+    "email": "demo@bhumivox.in",
+    "phone": "+91 90000 00001",
+    "password": "demo1234",
+    "avatar": "",
+    "role": "user",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "u_admin",
+    "name": "Bhumivox Admin",
+    "email": "admin@bhumivox.in",
+    "phone": "+91 90000 00002",
+    "password": "admin1234",
+    "avatar": "",
+    "role": "admin",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+]
