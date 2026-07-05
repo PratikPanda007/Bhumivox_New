@@ -3,7 +3,7 @@ import { Section } from "@/components/Section";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { useSeo } from "@/hooks/useSeo";
-import { bookingsService, type Booking } from "@/data/bookings-service";
+import { bookingsService, type Booking } from "@/services/bookings-service";
 import {
   Dialog,
   DialogContent,

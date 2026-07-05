@@ -5,7 +5,7 @@ import chandruImg from "@/assets/chandru-portrait.jpg";
 import intelMap from "@/assets/intelligence-map.jpg";
 import { IndiaMap } from "@/components/IndiaMap";
 import { JourneyCard } from "@/components/JourneyCard";
-import { JOURNEYS } from "@/data/journeys";
+import { JOURNEYS } from "@/services/journeys";
 import { Section, SectionLabel } from "@/components/Section";
 
 export default function Home() {

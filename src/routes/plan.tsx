@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSeo } from "@/hooks/useSeo";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { bookingsService } from "@/data/bookings-service";
+import { bookingsService } from "@/services/bookings-service";
 import heroImg from "@/assets/journey-braj.jpg";
 
 const STEPS = [

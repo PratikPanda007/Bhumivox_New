@@ -1,20 +1,50 @@
+import { useEffect, useState } from "react";
+import type { DestinationDetails } from "@/services/destinationDetailsService";
 import { Link, useParams } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
 import { Section, SectionLabel } from "@/components/Section";
-import { getDestination, DESTINATIONS } from "@/data/destinations";
-import { getJourney } from "@/data/journeys";
+import { destinationDetailsService } from "@/services/destinationDetailsService";
+import { getJourney } from "@/services/journeys";
 import { useSeo } from "@/hooks/useSeo";
 
 export default function DestinationDetailPage() {
   const { slug = "" } = useParams<{ slug: string }>();
-  const d = getDestination(slug);
+  const [data, setData] = useState<DestinationDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!slug) return;
+
+    const load = async () => {
+      try {
+        const result = await destinationDetailsService.getBySlug(slug);
+        setData(result);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [slug]);
+
+  const d = data?.destination;
 
   useSeo({
-    title: d ? `${d.name} — ${d.circuit} · Bhumivox` : "Destination — Bhumivox",
+    title: d ? `${d.destinationName} — ${d.circuit} · Bhumivox` : "Destination — Bhumivox",
     description: (d?.significance ?? "A sacred geography of Bharat.").slice(0, 158),
-    ogImage: d?.image,
+    ogImage: d?.heroImage,
   });
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-40 text-center">
+        Loading destination...
+      </div>
+    );
+  }
 
   if (!d) {
     return (
@@ -33,18 +63,19 @@ export default function DestinationDetailPage() {
     );
   }
 
-  const related = d.relatedJourneys.map(getJourney).filter(Boolean);
-  const others = DESTINATIONS.filter(
-    (o) => o.slug !== d.slug && o.circuit === d.circuit,
-  ).slice(0, 3);
+  const related = data?.relatedJourneys ?? [];
+
+  // We'll load "More in this circuit" from an API later.
+  // For now, keep it empty.
+  const others: any[] = [];
 
   return (
     <>
       <PageHero
         eyebrow={`${d.circuit} · ${d.region}`}
-        title={<>{d.name}</>}
+        title={<>{d.destinationName}</>}
         intro={d.tagline}
-        image={d.image}
+        image={d.heroImage}
       >
         <div className="flex flex-wrap items-center gap-3">
           {related.length > 0 && (
@@ -108,10 +139,10 @@ export default function DestinationDetailPage() {
             <div className="border border-border/60 bg-card p-6">
               <p className="eyebrow">Highlights</p>
               <ul className="mt-4 space-y-3">
-                {d.highlights.map((h) => (
-                  <li key={h} className="flex gap-3 text-sm text-ivory/85">
+                {data?.highlights.map((h) => (
+                  <li key={h.destinationHighlightId} className="flex gap-3 text-sm text-ivory/85">
                     <span className="mt-2 h-px w-4 flex-shrink-0 bg-primary" />
-                    {h}
+                    {h.highlight}
                   </li>
                 ))}
               </ul>
@@ -124,9 +155,16 @@ export default function DestinationDetailPage() {
       <Section className="!pt-0">
         <SectionLabel eyebrow="Gallery" title={<>Frames from the field.</>} />
         <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {d.gallery.map((src, i) => (
-            <div key={i} className="aspect-[4/5] overflow-hidden border border-border/60">
-              <img src={src} alt={`${d.name} ${i + 1}`} className="h-full w-full object-cover" />
+          {data?.gallery.map((g) => (
+            <div
+              key={g.destinationGalleryId}
+              className="aspect-[4/5] overflow-hidden border border-border/60"
+            >
+              <img
+                src={g.imageUrl}
+                alt={g.caption}
+                className="h-full w-full object-cover"
+              />
             </div>
           ))}
         </div>
@@ -147,20 +185,20 @@ export default function DestinationDetailPage() {
           <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
             {related.map((j) => (
               <Link
-                key={j!.slug}
-                to={`/journeys/${j!.slug}`}
+                key={j.journeyId}
+                to={`/journeys/${j.slug}`}
                 className="group relative isolate flex aspect-[16/10] flex-col justify-end overflow-hidden border border-border/60"
               >
                 <img
-                  src={j!.image}
-                  alt={j!.title}
+                  src={j.heroImage}
+                  alt={j.journeyName}
                   className="absolute inset-0 -z-10 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 -z-10 bg-gradient-to-t from-obsidian via-obsidian/70 to-transparent" />
                 <div className="p-6">
-                  <p className="eyebrow text-gold">{j!.duration}</p>
-                  <h3 className="mt-2 font-serif text-2xl text-ivory">{j!.title}</h3>
-                  <p className="mt-2 text-sm text-ivory/75 line-clamp-2">{j!.blurb}</p>
+                  <p className="eyebrow text-gold">{j.duration}</p>
+                  <h3 className="mt-2 font-serif text-2xl text-ivory">{j.journeyName}</h3>
+                  <p className="mt-2 text-sm text-ivory/75 line-clamp-2">{j.shortDescription}</p>
                 </div>
               </Link>
             ))}

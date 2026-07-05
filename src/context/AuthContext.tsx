@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { authService, type PublicUser } from "@/data/auth-service";
+import { authService, type PublicUser } from "@/services/auth-service";
 
 type AuthContextValue = {
   user: PublicUser | null;
