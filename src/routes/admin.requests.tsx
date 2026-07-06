@@ -1,179 +1,371 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { RequireAdmin } from "@/components/admin/RequireAdmin";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { QuotationForm } from "@/components/admin/QuotationForm";
-import { RefundPanel } from "@/components/admin/RefundPanel";
 import { useSeo } from "@/hooks/useSeo";
 
-type JourneyRequest = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  destinations: string[];
-  travel_month: string | null;
-  companions: string | null;
-  sattvik: boolean;
-  premium: boolean;
-  chandru_led: boolean;
-  notes: string | null;
-  status: string;
-  submitted_at: string;
-  quotation_id: string | null;
-};
-
-const STATUSES = ["new", "contacted", "closed", "refund", "archived"] as const;
+import { adminService, type Booking } from "@/services/adminService";
 
 function AdminRequestsInner() {
-  const [rows, setRows] = useState<JourneyRequest[]>([]);
-  const [selected, setSelected] = useState<JourneyRequest | null>(null);
-  const [loading, setLoading] = useState(true);
+    const [rows, setRows] = useState<Booking[]>([]);
+    const [selected, setSelected] = useState<Booking | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [paymentLink, setPaymentLink] = useState<string>("");
+    const [busy, setBusy] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("journey_requests")
-      .select("*")
-      .order("submitted_at", { ascending: false });
-    setRows((data as JourneyRequest[]) ?? []);
-    setLoading(false);
+    const load = async () => {
+        setLoading(true);
+
+        try {
+            const data = await adminService.getBookings();
+            setRows(data);
+        }
+        catch (err) {
+            console.error(err);
+        }
+
+        setLoading(false);
+        setPaymentLink("");
+    };
+
+    useEffect(() => {
+        load();
+    }, []);
+
+    const generatePaymentLink = async (bookingId: number) => {
+      try {
+          setBusy(true);
+          const result =
+              await adminService.generatePaymentLink(bookingId);
+          setPaymentLink(result.razorpayShortUrl);
+      }
+      catch (err) {
+          console.error(err);
+          alert("Unable to generate payment link.");
+      }
+      finally {
+          setBusy(false);
+      }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+    const copyPaymentLink = async () => {
+        if (!paymentLink) {
+            alert("Generate payment link first.");
+            return;
+        }
+        await navigator.clipboard.writeText(paymentLink);
+        alert("Payment link copied.");
+    };
 
-  const updateStatus = async (id: string, status: string) => {
-    await supabase.from("journey_requests").update({ status }).eq("id", id);
-    setRows((r) => r.map((row) => (row.id === id ? { ...row, status } : row)));
-    setSelected((s) => (s && s.id === id ? { ...s, status } : s));
-  };
+    const markPaid = async (bookingId: number) => {
+          try {
+              setBusy(true);
+              await adminService.markPaid(bookingId);
+              await load();
+              setSelected(null);
+              alert("Booking marked as paid.");
+          }
+          catch (err) {
+              console.error(err);
+              alert("Unable to mark booking paid.");
+          }
+          finally {
+              setBusy(false);
+          }
+      };
 
-  return (
-    <main className="px-6 py-8 md:px-10 md:py-10">
-      <div className="mb-8">
-        <span className="font-mono text-[0.65rem] uppercase tracking-[0.32em] text-primary">Studio</span>
-        <h1 className="mt-2 font-serif text-3xl text-ivory">Journey Requests</h1>
-      </div>
+    return (
+        <main className="px-6 py-8 md:px-10 md:py-10">
+            <div className="mb-8">
+                <span className="font-mono text-[0.65rem] uppercase tracking-[0.32em] text-primary">
+                    Studio
+                </span>
 
-      {loading ? (
-        <p className="text-muted-foreground">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-muted-foreground">No requests yet.</p>
-      ) : (
-        <div className="overflow-x-auto border border-border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-obsidian font-mono text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Submitted</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Destinations</th>
-                <th className="px-4 py-3">Month</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Quoted</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  onClick={() => setSelected(r)}
-                  className="cursor-pointer border-b border-border/60 transition-colors hover:bg-obsidian"
+                <h1 className="mt-2 font-serif text-3xl text-ivory">
+                    Journey Requests
+                </h1>
+            </div>
+
+            {loading ? (
+                <p className="text-muted-foreground">
+                    Loading...
+                </p>
+            ) : rows.length === 0 ? (
+                <p className="text-muted-foreground">
+                    No requests yet.
+                </p>
+            ) : (
+                <div className="overflow-x-auto border border-border">
+                    <table className="w-full text-left text-sm">
+                        <thead className="border-b border-border bg-obsidian font-mono text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
+                            <tr>
+                                <th className="px-4 py-3">Booking</th>
+                                <th className="px-4 py-3">Journey</th>
+                                <th className="px-4 py-3">Customer</th>
+                                <th className="px-4 py-3">Mobile</th>
+                                <th className="px-4 py-3">Departure</th>
+                                <th className="px-4 py-3">Travellers</th>
+                                <th className="px-4 py-3">Booking</th>
+                                <th className="px-4 py-3">Payment</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {rows.map((r) => (
+                                <tr
+                                    key={r.bookingId}
+                                    onClick={async () => {
+                                      setSelected(r);
+                                      try {
+                                          const link = await adminService.getPaymentLink(r.bookingId);
+                                          setPaymentLink(link ?? "");
+                                      }
+                                      catch {
+                                          setPaymentLink("");
+                                      }
+                                    }}
+                                    className="cursor-pointer border-b border-border/60 transition-colors hover:bg-obsidian"
+                                >
+                                    <td className="px-4 py-3 font-mono">
+                                        #{r.bookingId}
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        {r.journeyName}
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        <div>
+                                            <div className="text-ivory">
+                                                {r.fullName}
+                                            </div>
+
+                                            <div className="text-xs text-muted-foreground">
+                                                {r.email}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        {r.mobileNumber}
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        {new Date(
+                                            r.preferredDepartureDate
+                                        ).toLocaleDateString()}
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        {r.adults} Adult(s)
+
+                                        {r.children > 0 &&
+                                            ` + ${r.children} Child`}
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        <span
+                                            className={`inline-block border px-2 py-1 text-[0.65rem] uppercase tracking-[0.2em]
+                                            ${
+                                                r.bookingStatus === "Submitted"
+                                                    ? "border-primary text-primary"
+                                                    : r.bookingStatus === "Quoted"
+                                                    ? "border-blue-500 text-blue-500"
+                                                    : r.bookingStatus === "Confirmed"
+                                                    ? "border-green-500 text-green-500"
+                                                    : "border-border text-muted-foreground"
+                                            }`}
+                                        >
+                                            {r.bookingStatus}
+                                        </span>
+                                    </td>
+
+                                    <td className="px-4 py-3">
+                                        <span
+                                            className={`inline-block border px-2 py-1 text-[0.65rem] uppercase tracking-[0.2em]
+                                            ${
+                                                r.paymentStatus === "Paid"
+                                                    ? "border-green-500 text-green-500"
+                                                    : r.paymentStatus === "Pending"
+                                                    ? "border-yellow-500 text-yellow-500"
+                                                    : "border-border text-muted-foreground"
+                                            }`}
+                                        >
+                                            {r.paymentStatus}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {selected && (
+                <div
+                    className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
+                    onClick={() => setSelected(null)}
                 >
-                  <td className="px-4 py-3 text-muted-foreground">{new Date(r.submitted_at).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-ivory">{r.name}</td>
-                  <td className="px-4 py-3">{r.email}</td>
-                  <td className="px-4 py-3">{r.phone}</td>
-                  <td className="px-4 py-3">{r.destinations.join(", ")}</td>
-                  <td className="px-4 py-3">{r.travel_month ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block border px-2 py-1 text-[0.65rem] uppercase tracking-[0.2em] ${
-                      r.status === "new" ? "border-primary text-primary"
-                      : r.status === "contacted" ? "border-gold text-gold"
-                      : "border-border text-muted-foreground"
-                    }`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{r.quotation_id ? <span className="text-gold">✓</span> : <span className="text-muted-foreground">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full max-w-lg overflow-y-auto bg-background p-8 shadow-2xl"
+                    >
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em] text-primary">
+                                    Booking
+                                </span>
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50" onClick={() => setSelected(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg overflow-y-auto bg-background p-8 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em] text-primary">Request</span>
-                <h2 className="mt-2 font-serif text-2xl text-ivory">{selected.name}</h2>
-              </div>
-              <button onClick={() => setSelected(null)} className="text-2xl text-muted-foreground hover:text-ivory">×</button>
-            </div>
+                                <h2 className="mt-2 font-serif text-2xl text-ivory">
+                                    {selected.fullName}
+                                </h2>
+                            </div>
 
-            <dl className="mt-8 space-y-3 text-sm">
-              <Row label="Email" value={selected.email} />
-              <Row label="Phone" value={selected.phone} />
-              <Row label="Submitted" value={new Date(selected.submitted_at).toLocaleString()} />
-              <Row label="Destinations" value={selected.destinations.join(", ") || "—"} />
-              <Row label="Travel month" value={selected.travel_month ?? "—"} />
-              <Row label="Companions" value={selected.companions ?? "—"} />
-              <Row label="Sattvik" value={selected.sattvik ? "Yes" : "No"} />
-              <Row label="Premium" value={selected.premium ? "Yes" : "No"} />
-              <Row label="Chandru-led" value={selected.chandru_led ? "Yes" : "No"} />
-              <Row label="Notes" value={selected.notes || "—"} />
-            </dl>
+                            <button
+                                onClick={() => setSelected(null)}
+                                className="text-2xl text-muted-foreground hover:text-ivory"
+                            >
+                                ×
+                            </button>
+                        </div>
 
-            <div className="mt-8">
-              <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em] text-muted-foreground">Status</span>
-              <div className="mt-3 flex gap-2">
-                {STATUSES.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => updateStatus(selected.id, s)}
-                    className={`border px-3 py-2 text-[0.65rem] uppercase tracking-[0.24em] ${
-                      selected.status === s
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
+                        <dl className="mt-8 space-y-3 text-sm">
+                            <Row label="Journey" value={selected.journeyName} />
 
-            <QuotationForm request={selected} onSent={load} />
-            <RefundPanel requestId={selected.id} onRefunded={load} />
-          </div>
-        </div>
-      )}
-    </main>
-  );
+                            <Row label="Email" value={selected.email} />
+
+                            <Row label="Mobile" value={selected.mobileNumber} />
+
+                            <Row label="Country" value={selected.country} />
+
+                            <Row label="City" value={selected.city} />
+
+                            <Row
+                                label="Departure"
+                                value={new Date(
+                                    selected.preferredDepartureDate
+                                ).toLocaleDateString()}
+                            />
+
+                            <Row
+                                label="Adults"
+                                value={selected.adults.toString()}
+                            />
+
+                            <Row
+                                label="Children"
+                                value={selected.children.toString()}
+                            />
+
+                            <Row
+                                label="Booking Status"
+                                value={selected.bookingStatus}
+                            />
+
+                            <Row
+                                label="Payment Status"
+                                value={selected.paymentStatus}
+                            />
+
+                            <Row
+                                label="Amount"
+                                value={`₹${selected.amount.toLocaleString("en-IN")}`}
+                            />
+
+                            <Row
+                                label="Created"
+                                value={new Date(selected.createdOn).toLocaleString()}
+                            />
+                        </dl>
+
+                        {paymentLink && (
+                          <div className="mt-6">
+                              <label className="mb-2 block font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                                  Razorpay Payment Link
+                              </label>
+                              <input
+                                  readOnly
+                                  value={paymentLink}
+                                  className="w-full rounded border border-border bg-card px-3 py-3 text-sm"
+                              />
+                          </div>
+                        )}
+
+                        <div className="mt-10 flex flex-wrap gap-3">
+
+                            <button
+                                disabled={busy}
+                                onClick={() => generatePaymentLink(selected.bookingId)}
+                                className="rounded bg-primary px-5 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+                            >
+                                {busy ? "Generating..." : "Generate Razorpay Link"}
+                            </button>
+
+                            <button
+                                disabled={!paymentLink}
+                                onClick={copyPaymentLink}
+                                className="rounded border border-border px-5 py-3 text-xs uppercase tracking-widest text-ivory disabled:opacity-50"
+                            >
+                                Copy Link
+                            </button>
+
+                            <button
+                                disabled={busy}
+                                onClick={() => markPaid(selected.bookingId)}
+                                className="rounded border border-green-600 px-5 py-3 text-xs uppercase tracking-widest text-green-500 disabled:opacity-50"
+                            >
+                                Mark Paid
+                            </button>
+                        </div>
+
+                        {paymentLink && (
+                          <div className="mt-8 rounded border border-primary/30 bg-card p-4">
+                              <p className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-primary">
+                                  Payment Link
+                              </p>
+
+                              <a
+                                  href={paymentLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-3 block break-all text-sm text-blue-400 hover:underline"
+                              >
+                                  {paymentLink}
+                              </a>
+                          </div>
+                        )}
+
+                    </div>
+                </div>
+            )}
+        </main>
+    );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-6 border-b border-border/40 pb-2">
-      <dt className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-muted-foreground">{label}</dt>
-      <dd className="text-right text-ivory">{value}</dd>
-    </div>
-  );
+    return (
+        <div className="flex justify-between gap-6 border-b border-border/40 pb-2">
+            <dt className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-muted-foreground">
+                {label}
+            </dt>
+
+            <dd className="text-right text-ivory">
+                {value}
+            </dd>
+        </div>
+    );
 }
 
 export default function AdminRequestsPage() {
-  useSeo({ title: "Journey Requests — Bhumivox Studio", description: "Studio admin." });
-  return (
-    <RequireAdmin>
-      <AdminLayout>
-        <AdminRequestsInner />
-      </AdminLayout>
-    </RequireAdmin>
-  );
+    useSeo({
+        title: "Journey Requests — Bhumivox Studio",
+        description: "Studio admin."
+    });
+
+    return (
+        <RequireAdmin>
+            <AdminLayout>
+                <AdminRequestsInner />
+            </AdminLayout>
+        </RequireAdmin>
+    );
 }
