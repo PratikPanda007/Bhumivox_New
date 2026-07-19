@@ -3,7 +3,8 @@ import { Section } from "@/components/Section";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { useSeo } from "@/hooks/useSeo";
-import { bookingsService, type Booking } from "@/services/bookings-service";
+import { bookingApi, groupBookings, type BookingGroup } from "@/services/bookingApi";
+import type { Booking } from "@/services/bookings-service";
 import {
   Dialog,
   DialogContent,
@@ -83,84 +84,172 @@ function BookingRow({ b, onOpen }: { b: Booking; onOpen: (b: Booking) => void })
   );
 }
 
-function BookingDetail({ booking, onClose }: { booking: Booking | null; onClose: () => void }) {
+function BookingGroupDetail({
+  group,
+  onClose,
+}: {
+  group: BookingGroup | null;
+  onClose: () => void;
+}) {
+
+  if (!group)
+    return null;
+
+  const first = group.bookings[0];
+
+  const totalAmount = group.bookings.reduce(
+    (t, x) => t + (x.amount ?? 0),
+    0
+  );
+
+  const totalTravellers = group.bookings.reduce(
+    (t, x) => t + x.adults + x.children,
+    0
+  );
+
   return (
-    <Dialog open={!!booking} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        {booking && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="font-serif text-2xl">
-                {booking.destinations.join(" · ") || "Open journey"}
-              </DialogTitle>
-              <DialogDescription>
-                Booking <span className="font-mono">{booking.id}</span> · submitted {formatDate(booking.submittedAt)}
-              </DialogDescription>
-            </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <Detail label="Travel month" value={formatMonth(booking.travelMonth)} />
-              <Detail label="Companions" value={booking.party || "—"} />
-              <Detail label="Members" value={String(booking.members)} />
-              <Detail label="Status" value={booking.status} />
-              <Detail label="Sattvik kitchen" value={booking.style.sattvik ? "Yes" : "No"} />
-              <Detail label="Premium comfort" value={booking.style.premium ? "Yes" : "No"} />
-              <Detail label="Chandru-led" value={booking.style.chandruLed ? "Yes" : "No"} />
-              <Detail label="Total amount" value={formatCurrency(booking.amount, booking.currency)} />
-            </div>
+    <Dialog
+      open={!!group}
+      onOpenChange={(o) => !o && onClose()}
+    >
 
-            {booking.style.notes && (
-              <div className="border-t border-border/60 pt-4">
-                <div className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">Notes</div>
-                <p className="mt-1 text-sm text-foreground">{booking.style.notes}</p>
+      <DialogContent className="max-w-3xl">
+
+        <DialogHeader>
+
+          <DialogTitle className="font-serif text-3xl">
+            Booking Group #{group.bookingGroupId}
+          </DialogTitle>
+
+          <DialogDescription>
+            {group.bookings.length} Journey(s)
+          </DialogDescription>
+
+        </DialogHeader>
+
+        <div className="space-y-4">
+
+          {group.bookings.map((booking) => (
+
+            <div
+              key={booking.bookingId}
+              className="rounded border border-border/60 p-4"
+            >
+
+              <div className="flex items-center justify-between">
+
+                <div>
+
+                  <h3 className="font-serif text-xl">
+                    {booking.journeyName}
+                  </h3>
+
+                  <p className="text-sm text-muted-foreground">
+                    Departure :
+                    {" "}
+                    {formatDate(
+                      booking.preferredDepartureDate
+                    )}
+                  </p>
+
+                </div>
+
+                <Badge variant="secondary">
+                  {booking.bookingStatus}
+                </Badge>
+
               </div>
-            )}
 
-            <div className="border-t border-border/60 pt-4">
-              <div className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
-                Payment details
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
-                <Detail label="Payment status" value={booking.payment.status} />
-                <Detail label="Amount" value={formatCurrency(booking.amount, booking.currency)} />
-                <Detail label="Method" value={booking.payment.method || "—"} />
-                <Detail label="Card last 4" value={booking.payment.last4 || "—"} />
-                <Detail label="Payment ID" value={booking.payment.paymentId || "—"} />
-                <Detail label="Paid at" value={booking.payment.paidAt ? formatDate(booking.payment.paidAt) : "—"} />
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+
                 <Detail
-                  label="Razorpay link"
-                  value={
-                    booking.payment.razorpayLinkUrl ? (
-                      <a
-                        href={booking.payment.razorpayLinkUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Open link
-                      </a>
-                    ) : (
-                      "—"
-                    )
-                  }
+                  label="Adults"
+                  value={booking.adults}
                 />
-                <Detail label="Link ID" value={booking.payment.razorpayLinkId || "—"} />
+
+                <Detail
+                  label="Children"
+                  value={booking.children}
+                />
+
+                <Detail
+                  label="Amount"
+                  value={formatCurrency(
+                    booking.amount,
+                    booking.currency
+                  )}
+                />
+
+                <Detail
+                  label="Payment"
+                  value={booking.paymentStatus}
+                />
+
               </div>
-              <p className="mt-3 text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
-                Razorpay activation pending — payment IDs shown are placeholders.
-              </p>
+
+              {booking.specialRequirements && (
+
+                <div className="mt-3">
+
+                  <div className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-muted-foreground">
+                    Notes
+                  </div>
+
+                  <p className="mt-1 text-sm">
+                    {booking.specialRequirements}
+                  </p>
+
+                </div>
+
+              )}
+
             </div>
 
-            <div className="border-t border-border/60 pt-4">
-              <div className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">Contact</div>
-              <p className="mt-1 text-sm">
-                {booking.contact.name} · {booking.contact.email} · {booking.contact.phone}
-              </p>
-            </div>
-          </>
-        )}
+          ))}
+
+        </div>
+
+        <div className="border-t pt-5">
+
+          <div className="grid grid-cols-2 gap-4">
+
+            <Detail
+              label="Traveller"
+              value={first.fullName}
+            />
+
+            <Detail
+              label="Email"
+              value={first.email}
+            />
+
+            <Detail
+              label="Mobile"
+              value={first.mobileNumber}
+            />
+
+            <Detail
+              label="Total Travellers"
+              value={totalTravellers}
+            />
+
+            <Detail
+              label="Total Amount"
+              value={formatCurrency(
+                totalAmount,
+                first.currency
+              )}
+            />
+
+          </div>
+
+        </div>
+
       </DialogContent>
+
     </Dialog>
+
   );
 }
 
@@ -173,44 +262,116 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function mapBooking(api: any): Booking {
+  return {
+    id: api.bookingGuid,
+
+    userEmail: api.email,
+
+    contact: {
+      name: api.fullName,
+      email: api.email,
+      phone: api.mobileNumber,
+    },
+
+    destinations: [api.journeyName],
+
+    travelMonth: api.preferredDepartureDate
+      ? api.preferredDepartureDate.substring(0, 7)
+      : "",
+
+    party: `${api.adults + api.children} Travellers`,
+
+    members: api.adults + api.children,
+
+    style: {
+      sattvik: false,
+      premium: false,
+      chandruLed: false,
+      notes: api.specialRequirements ?? "",
+    },
+
+    amount: api.amount,
+
+    currency: api.currency,
+
+    status: api.bookingStatus.toLowerCase() as Booking["status"],
+
+    payment: {
+      status: api.paymentStatus.toLowerCase() as Booking["payment"]["status"],
+      paymentId: api.razorpayPaymentLinkId,
+      razorpayLinkId: api.razorpayPaymentLinkId,
+      razorpayLinkUrl: api.razorpayShortUrl,
+    },
+
+    submittedAt: api.createdOn,
+
+    upcoming:
+      api.preferredDepartureDate
+        ? new Date(api.preferredDepartureDate) > new Date()
+        : false,
+  };
+}
+
 function MyBookingsInner() {
   const { user } = useAuth();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  //const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingGroups, setBookingGroups] = useState<BookingGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<Booking | null>(null);
+  const [selected, setSelected] = useState<BookingGroup | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    bookingsService.listForUser(user.email).then((rows) => {
-      setBookings(rows);
-      setLoading(false);
-    });
+
+    bookingApi
+      .getMyBookings()
+      .then((rows) => {
+        setBookingGroups(groupBookings(rows));
+      })
+      .finally(() => setLoading(false));
   }, [user]);
 
-  const upcoming = useMemo(() => bookings.filter((b) => b.upcoming).slice(0, 3), [bookings]);
+  //const upcoming = useMemo(() => bookings.filter((b) => b.upcoming).slice(0, 3), [bookings]);
+  const upcoming = useMemo(() => {
+    return bookingGroups
+      .filter(group => {
+
+        const first = group.bookings[0];
+
+        return first.preferredDepartureDate
+          ? new Date(first.preferredDepartureDate) > new Date()
+          : false;
+
+      })
+      .slice(0, 3);
+
+  }, [bookingGroups]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return bookings;
-    return bookings.filter((b) => {
-      const hay = [
-        b.id,
-        b.destinations.join(" "),
-        b.travelMonth,
-        b.party,
-        b.status,
-        b.payment.paymentId ?? "",
-        b.contact.name,
-        b.contact.email,
-        String(b.amount ?? ""),
-      ]
+
+    if (!q)
+      return bookingGroups;
+
+    return bookingGroups.filter(group => {
+      const text = group.bookings
+        .map(x =>
+          [
+            x.bookingGuid,
+            x.journeyName,
+            x.bookingStatus,
+            x.fullName,
+            x.email
+          ].join(" ")
+        )
         .join(" ")
         .toLowerCase();
-      return hay.includes(q);
+
+      return text.includes(q);
     });
-  }, [bookings, query]);
+  }, [bookingGroups, query]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -226,7 +387,7 @@ function MyBookingsInner() {
 
       {loading ? (
         <p className="mt-10 text-sm text-muted-foreground">Loading your bookings…</p>
-      ) : bookings.length === 0 ? (
+      ) :  bookingGroups.length  === 0 ? (
         <div className="mt-16 border border-dashed border-border p-16 text-center">
           <p className="text-sm text-muted-foreground">You have no bookings yet.</p>
         </div>
@@ -242,26 +403,62 @@ function MyBookingsInner() {
                 </span>
               </div>
               <div className="mt-6 grid gap-4 md:grid-cols-3">
-                {upcoming.map((b) => (
-                  <button
-                    type="button"
-                    key={b.id}
-                    onClick={() => setSelected(b)}
-                    className="border border-border/60 bg-card p-6 text-left transition-colors hover:border-primary"
-                  >
-                    <Badge variant={statusTone(b.status)} className="uppercase tracking-[0.18em]">
-                      {b.status}
-                    </Badge>
-                    <h3 className="mt-4 font-serif text-xl">{b.destinations.join(" · ") || "Open journey"}</h3>
-                    <p className="mt-1 font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
-                      {formatMonth(b.travelMonth)}
-                    </p>
-                    <div className="mt-6 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{b.members} members</span>
-                      <span className="text-ivory">{formatCurrency(b.amount, b.currency)}</span>
-                    </div>
-                  </button>
-                ))}
+                {upcoming.map((group) => {
+                  const first = group.bookings[0];
+
+                  const totalAmount = group.bookings.reduce(
+                    (t, x) => t + (x.amount ?? 0),
+                    0
+                  );
+
+                  const totalMembers = group.bookings.reduce(
+                    (t, x) => t + x.adults + x.children,
+                    0
+                  );
+
+                  const journeys = group.bookings
+                    .map(x => x.journeyName)
+                    .join(" • ");
+
+                  return (
+                    <button
+                      type="button"
+                      key={group.bookingGroupId}
+                      onClick={() => {
+                        console.log("CLICK", group);
+                        setSelected(group);
+                      }}
+                      className="border border-border/60 bg-card p-6 text-left transition-colors hover:border-primary"
+                    >
+                      <Badge variant="secondary">
+                        {first.bookingStatus}
+                      </Badge>
+
+                      <h3 className="mt-4 font-serif text-xl">
+                        {journeys}
+                      </h3>
+
+                      <p className="mt-1 font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
+                        {formatMonth(first.preferredDepartureDate.substring(0,7))}
+                      </p>
+
+                      <div className="mt-6 flex items-center justify-between text-sm">
+
+                        <span className="text-muted-foreground">
+                          {totalMembers} Travellers
+                        </span>
+
+                        <span className="text-ivory">
+                          {formatCurrency(totalAmount, first.currency)}
+                        </span>
+
+                      </div>
+
+                    </button>
+
+                  );
+
+                })}
               </div>
             </div>
           )}
@@ -293,9 +490,71 @@ function MyBookingsInner() {
                 <div className="col-span-2 text-right">Status</div>
               </div>
               {paged.length === 0 ? (
-                <p className="px-4 py-10 text-center text-sm text-muted-foreground">No bookings match your search.</p>
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  No bookings match your search.
+                </p>
+
               ) : (
-                paged.map((b) => <BookingRow key={b.id} b={b} onOpen={setSelected} />)
+
+                paged.map((group) => {
+
+                  const first = group.bookings[0];
+
+                  const totalAmount = group.bookings.reduce(
+                    (t, x) => t + (x.amount ?? 0),
+                    0
+                  );
+
+                  const totalTravellers = group.bookings.reduce(
+                    (t, x) => t + x.adults + x.children,
+                    0
+                  );
+
+                  const journeys = group.bookings
+                    .map(x => x.journeyName)
+                    .join(" • ");
+
+                  return (
+
+                    <button
+                      key={group.bookingGroupId}
+                      type="button"
+                      onClick={() => {
+                        console.log("CLICK 2", group);
+                        setSelected(group);
+                      }}
+                      className="grid w-full grid-cols-12 items-center gap-4 border-b border-border/60 px-4 py-5 text-left transition-colors hover:bg-muted"
+                    >
+
+                      <div className="col-span-12 md:col-span-5">
+
+                        <div className="font-serif text-lg text-ivory">
+                          {journeys}
+                        </div>
+
+                        <div className="mt-1 font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
+                          Group #{group.bookingGroupId}
+                        </div>
+
+                      </div>
+
+                      <div className="col-span-4 md:col-span-2">
+                        {totalTravellers}
+                      </div>
+
+                      <div className="col-span-4 md:col-span-3">
+                        {formatCurrency(totalAmount, first.currency)}
+                      </div>
+
+                      <div className="col-span-4 flex justify-end md:col-span-2">
+
+                        <Badge variant="secondary">
+                          {first.bookingStatus}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
 
@@ -330,7 +589,7 @@ function MyBookingsInner() {
         </>
       )}
 
-      <BookingDetail booking={selected} onClose={() => setSelected(null)} />
+      <BookingGroupDetail group={selected} onClose={() => setSelected(null)} />
     </Section>
   );
 }
