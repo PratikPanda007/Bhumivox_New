@@ -68,7 +68,8 @@ export const authService = {
     email: string;
     phone: string;
     password: string;
-  }): Promise<PublicUser> {
+  }): Promise<void> {
+
     const response = await fetch(`${API_URL}/register`, {
       method: "POST",
       headers: {
@@ -88,9 +89,6 @@ export const authService = {
     if (!response.ok || !data.success) {
       throw new Error(data.message || "Registration failed.");
     }
-
-    // Automatically log in after successful registration
-    return await this.login(input.email, input.password);
   },
 
   async logout(): Promise<void> {

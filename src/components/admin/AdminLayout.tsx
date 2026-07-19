@@ -1,21 +1,13 @@
-import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setEmail(session?.user.email ?? "");
-    })();
-  }, []);
+  const { user, logout } = useAuth();
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/admin", { replace: true });
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
@@ -39,7 +31,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <NavLink to="/admin/requests" className={linkCls}>Requests</NavLink>
         </nav>
         <div className="border-t border-border px-6 py-5">
-          <p className="truncate text-xs text-muted-foreground">{email}</p>
+          <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
           <button onClick={signOut} className="mt-3 text-[0.65rem] uppercase tracking-[0.28em] text-muted-foreground hover:text-ivory">
             Sign out
           </button>

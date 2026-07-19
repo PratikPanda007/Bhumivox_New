@@ -16,13 +16,13 @@ import DestinationsIndex from "@/routes/destinations.index";
 import DestinationDetail from "@/routes/destinations.$slug";
 import JourneysIndex from "@/routes/journeys.index";
 import JourneyDetail from "@/routes/journeys.$slug";
-import AdminLogin from "@/routes/admin";
 import AdminRequests from "@/routes/admin.requests";
 import AdminDashboard from "@/routes/admin.dashboard";
 import Login from "@/routes/login";
 import Signup from "@/routes/signup";
 import Settings from "@/routes/settings";
 import MyBookings from "@/routes/my-bookings";
+import { RequireAdmin } from "./components/RequireAdmin";
 
 function Layout() {
   return (
@@ -58,9 +58,35 @@ export default function App() {
         <Route path="/journeys/:slug" element={<JourneyDetail />} />
         <Route path="*" element={<NotFound />} />
       </Route>
-      <Route path="/admin" element={<AdminLogin />} />
-      <Route path="/admin/dashboard" element={<AdminDashboard />} />
-      <Route path="/admin/requests" element={<AdminRequests />} />
+      {/* <Route path="/admin" element={<AdminLogin />} /> */}
+      {/* <Route path="/admin/dashboard" element={<AdminDashboard />} /> */}
+      {/* <Route path="/admin/requests" element={<AdminRequests />} /> */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <RequireAdmin>
+            <AdminDashboard />
+          </RequireAdmin>
+        }
+      />
+      
+      <Route
+        path="/admin/dashboard"
+        element={
+          <RequireAdmin>
+            <AdminDashboard />
+          </RequireAdmin>
+        }
+      />
+
+      <Route
+        path="/admin/requests"
+        element={
+          <RequireAdmin>
+            <AdminRequests />
+          </RequireAdmin>
+        }
+      />      
     </Routes>
   );
 }

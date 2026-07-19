@@ -37,18 +37,27 @@ export type PaymentLink = {
 export const adminService = {
 
     async getBookings(): Promise<Booking[]> {
-        return await apiFetch<Booking[]>("/Admin/Bookings");
+        //return await apiFetch<Booking[]>("/Admin/Bookings");
+        const result = await apiFetch<{
+            success: boolean;
+            data: Booking[];
+        }>("/Admin/Bookings");
+
+        return result.data;
     },
 
     async getBooking(id: number): Promise<Booking> {
         return await apiFetch<Booking>(`/Admin/Bookings/${id}`);
     },
 
-    async generatePaymentLink(id: number): Promise<PaymentLink> {
+    async generatePaymentLink(id: number, amount: number): Promise<PaymentLink> {
         return await apiFetch<PaymentLink>(
             `/Admin/Bookings/${id}/GeneratePaymentLink`,
             {
-                method: "POST"
+                method: "POST",
+                 body: JSON.stringify({
+                amount
+            })
             }
         );
     },

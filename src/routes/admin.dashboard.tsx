@@ -9,19 +9,24 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
+import { adminService } from "@/services/adminService";
 import { RequireAdmin } from "@/components/admin/RequireAdmin";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useSeo } from "@/hooks/useSeo";
 
 type Req = {
-  id: string;
-  name: string;
-  email: string;
-  destinations: string[];
-  status: string;
-  submitted_at: string;
-  quotation_id: string | null;
+    id: string;
+    name: string;
+    email: string;
+    destinations: string[];
+    bookingStatus: string;
+    paymentStatus: string;
+    amount: number;
+    currency: string;
+    paymentMethod: string | null;
+    paidOn: string | null;
+    submitted_at: string;
+    quotation_id: string | null;
 };
 
 function Stat({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
@@ -39,48 +44,130 @@ function DashboardInner() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("journey_requests")
-        .select("id,name,email,destinations,status,submitted_at,quotation_id")
-        .order("submitted_at", { ascending: false });
-      setRows((data as Req[]) ?? []);
-      setLoading(false);
+        try {
+            const data = await adminService.getBookings();
+
+            const mapped: Req[] = data.map((b: any) => ({
+              id: b.bookingId.toString(),
+              name: b.fullName,
+              email: b.email,
+              destinations: [b.journeyName],
+              bookingStatus: b.bookingStatus,
+              paymentStatus: b.paymentStatus,
+              amount: b.amount,
+              currency: b.currency,
+              paymentMethod: b.paymentMethod,
+              paidOn: b.paidOn,
+              submitted_at: b.createdOn,
+              quotation_id: null
+            }));
+
+            setRows(mapped);
+        }
+        catch (err) {
+            console.error(err);
+        }
+        finally {
+            setLoading(false);
+        }
     })();
   }, []);
 
   const stats = useMemo(() => {
-    const c = { total: rows.length, new: 0, contacted: 0, archived: 0, quoted: 0 };
+    const c = {
+        total: rows.length,
+        submitted: 0,
+        quoted: 0,
+        confirmed: 0,
+        completed: 0,
+        paid: 0,
+        pendingPayment: 0,
+        revenue: 0
+    };
+
     rows.forEach((r) => {
-      if (r.status === "new") c.new++;
-      else if (r.status === "contacted") c.contacted++;
-      else if (r.status === "archived") c.archived++;
-      if (r.quotation_id) c.quoted++;
+        switch (r.bookingStatus) {
+
+            case "Submitted":
+                c.submitted++;
+                break;
+
+            case "Quoted":
+                c.quoted++;
+                break;
+
+            case "Confirmed":
+                c.confirmed++;
+                break;
+
+            case "Completed":
+                c.completed++;
+                break;
+        }
+
+        // Payment Statistics
+        if (r.paymentStatus === "Paid") {
+            c.paid++;
+            c.revenue += r.amount;
+        }
+        else {
+            c.pendingPayment++;
+        }
+
     });
+
     return c;
   }, [rows]);
 
   const chartData = useMemo(() => {
-    const days: { date: string; count: number }[] = [];
-    const map = new Map<string, number>();
-    const now = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      map.set(key, 0);
-      days.push({ date: key, count: 0 });
-    }
-    rows.forEach((r) => {
-      const key = r.submitted_at.slice(0, 10);
-      if (map.has(key)) map.set(key, (map.get(key) ?? 0) + 1);
-    });
-    return days.map((d) => ({ date: d.date.slice(5), count: map.get(d.date) ?? 0 }));
+      const map = new Map<string, number>();
+
+      // Initialize last 30 days
+      for (let i = 29; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+
+          const key =
+              d.getFullYear() +
+              "-" +
+              String(d.getMonth() + 1).padStart(2, "0") +
+              "-" +
+              String(d.getDate()).padStart(2, "0");
+
+          map.set(key, 0);
+      }
+
+      rows.forEach((r) => {
+          const key = r.submitted_at.substring(0, 10);
+
+          if (map.has(key)) {
+              map.set(key, (map.get(key) ?? 0) + 1);
+          }
+      });
+
+      return Array.from(map.entries()).map(([date, count]) => ({
+          date: date.substring(5),
+          count,
+      }));
   }, [rows]);
 
   const topDestinations = useMemo(() => {
     const counts = new Map<string, number>();
-    rows.forEach((r) => r.destinations.forEach((d) => counts.set(d, (counts.get(d) ?? 0) + 1)));
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    rows.forEach((r) => {
+        const journey = r.destinations[0];
+
+        if (!journey) return;
+
+        counts.set(
+            journey,
+            (counts.get(journey) ?? 0) + 1
+        );
+    });
+
+    return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
   }, [rows]);
 
   const recent = rows.slice(0, 5);
@@ -99,10 +186,19 @@ function DashboardInner() {
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
             <Stat label="Total" value={stats.total} />
-            <Stat label="New" value={stats.new} accent="text-primary" />
-            <Stat label="Contacted" value={stats.contacted} accent="text-gold" />
-            <Stat label="Archived" value={stats.archived} />
-            <Stat label="Quoted" value={stats.quoted} accent="text-gold" />
+            <Stat label="Submitted" value={stats.submitted} accent="text-primary" />
+            <Stat label="Quoted" value={stats.quoted} accent="text-blue-500" />
+            <Stat label="Confirmed" value={stats.confirmed} accent="text-green-500" />
+            <Stat label="Completed" value={stats.completed} accent="text-gold" />
+            <Stat label="Paid" value={stats.paid} accent="text-green-500" />
+
+            <Stat label="Pending Payment" value={stats.pendingPayment} accent="text-yellow-500" />
+
+            <Stat
+                label="Revenue"
+                value={`₹${stats.revenue.toLocaleString()}`}
+                accent="text-primary"
+            />
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -123,7 +219,7 @@ function DashboardInner() {
                         fontSize: 12,
                       }}
                     />
-                    <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -175,9 +271,11 @@ function DashboardInner() {
                       <p className="text-sm text-ivory">{r.name}</p>
                       <p className="text-xs text-muted-foreground">{r.email}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{r.destinations.join(", ") || "—"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {r.destinations[0] ?? "—"}
+                  </p>
                     <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
-                      {new Date(r.submitted_at).toLocaleDateString()}
+                      {new Date(r.submitted_at).toLocaleDateString("en-IN")}
                     </p>
                   </li>
                 ))}
@@ -193,10 +291,8 @@ function DashboardInner() {
 export default function AdminDashboardPage() {
   useSeo({ title: "Dashboard — Bhumivox Studio", description: "Studio admin." });
   return (
-    <RequireAdmin>
       <AdminLayout>
         <DashboardInner />
       </AdminLayout>
-    </RequireAdmin>
   );
 }

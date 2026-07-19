@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useSeo } from "@/hooks/useSeo";
 
 export default function AdminLogin() {
@@ -11,36 +11,52 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", session.user.userId);
-      if (data && data.length > 0) navigate("/admin/dashboard", { replace: true });
-    })();
-  }, [navigate]);
+
+    if (!user)
+      return;
+
+    if (user.roleId === 1 || user.roleId === 2) {
+      navigate("/admin/dashboard", {
+        replace: true,
+      });
+    }
+
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+
     setLoading(true);
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError || !data.session) {
-      setError(signInError?.message ?? "Sign in failed.");
-      setLoading(false);
-      return;
+    setError(null);
+
+    try {
+      const result = await authApi.login({
+        email,
+        password,
+      });
+
+      if (
+        result.user.roleId !== 1 &&
+        result.user.roleId !== 2
+      ) {
+        setError("You do not have admin access.");
+        setLoading(false);
+        return;
+      }
+
+      navigate("/admin/dashboard", {
+        replace: true,
+      });
     }
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.session.user.userId);
-    if (!roles || roles.length === 0) {
-      await supabase.auth.signOut();
-      setError("This account does not have admin access.");
-      setLoading(false);
-      return;
+    catch (err: any) {
+      setError(err.message ?? "Login failed.");
     }
-    navigate("/admin/dashboard", { replace: true });
+    finally {
+      setLoading(false);
+    }
   };
 
   return (

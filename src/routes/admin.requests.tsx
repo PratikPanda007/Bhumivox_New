@@ -11,6 +11,7 @@ function AdminRequestsInner() {
     const [loading, setLoading] = useState(true);
     const [paymentLink, setPaymentLink] = useState<string>("");
     const [busy, setBusy] = useState(false);
+    const [quoteAmount, setQuoteAmount] = useState(0);
 
     const load = async () => {
         setLoading(true);
@@ -34,8 +35,7 @@ function AdminRequestsInner() {
     const generatePaymentLink = async (bookingId: number) => {
       try {
           setBusy(true);
-          const result =
-              await adminService.generatePaymentLink(bookingId);
+          const result = await adminService.generatePaymentLink(bookingId, amount);
           setPaymentLink(result.razorpayShortUrl);
       }
       catch (err) {
@@ -115,8 +115,10 @@ function AdminRequestsInner() {
                                     key={r.bookingId}
                                     onClick={async () => {
                                       setSelected(r);
-                                      try {
-                                          const link = await adminService.getPaymentLink(r.bookingId);
+                                    setQuoteAmount(r.amount);
+
+                                    try {
+                                        const link = await adminService.getPaymentLink(r.bookingId);
                                           setPaymentLink(link ?? "");
                                       }
                                       catch {
@@ -266,10 +268,18 @@ function AdminRequestsInner() {
                                 value={selected.paymentStatus}
                             />
 
-                            <Row
-                                label="Amount"
-                                value={`₹${selected.amount.toLocaleString("en-IN")}`}
-                            />
+                            <div className="mt-4">
+                                <label className="mb-2 block font-mono text-[0.65rem] uppercase tracking-[0.28em] text-muted-foreground">
+                                    Quotation Amount
+                                </label>
+
+                                <input
+                                    type="number"
+                                    value={quoteAmount}
+                                    onChange={(e) => setQuoteAmount(Number(e.target.value))}
+                                    className="w-full rounded border border-border bg-card px-3 py-3 text-ivory"
+                                />
+                            </div>
 
                             <Row
                                 label="Created"
@@ -292,29 +302,40 @@ function AdminRequestsInner() {
 
                         <div className="mt-10 flex flex-wrap gap-3">
 
-                            <button
-                                disabled={busy}
-                                onClick={() => generatePaymentLink(selected.bookingId)}
-                                className="rounded bg-primary px-5 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
-                            >
-                                {busy ? "Generating..." : "Generate Razorpay Link"}
-                            </button>
+                            {selected.paymentStatus !== "Paid" && (
+                                <button
+                                    disabled={busy}
+                                    onClick={() =>
+                                        generatePaymentLink(
+                                            selected.bookingId,
+                                            quoteAmount
+                                        )
+                                    }
+                                    className="rounded bg-primary px-5 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+                                >
+                                    {busy ? "Generating..." : "Generate Razorpay Link"}
+                                </button>
+                            )}
 
-                            <button
-                                disabled={!paymentLink}
-                                onClick={copyPaymentLink}
-                                className="rounded border border-border px-5 py-3 text-xs uppercase tracking-widest text-ivory disabled:opacity-50"
-                            >
-                                Copy Link
-                            </button>
+                            {selected.paymentStatus !== "Paid" && (
+                                <button
+                                    disabled={!paymentLink}
+                                    onClick={copyPaymentLink}
+                                    className="rounded border border-border px-5 py-3 text-xs uppercase tracking-widest text-ivory disabled:opacity-50"
+                                >
+                                    Copy Link
+                                </button>
+                            )}
 
-                            <button
-                                disabled={busy}
-                                onClick={() => markPaid(selected.bookingId)}
-                                className="rounded border border-green-600 px-5 py-3 text-xs uppercase tracking-widest text-green-500 disabled:opacity-50"
-                            >
-                                Mark Paid
-                            </button>
+                            {selected.paymentStatus !== "Paid" && (
+                                <button
+                                    disabled={busy}
+                                    onClick={() => markPaid(selected.bookingId)}
+                                    className="rounded border border-green-600 px-5 py-3 text-xs uppercase tracking-widest text-green-500 disabled:opacity-50"
+                                >
+                                    Mark Paid
+                                </button>
+                            )}
                         </div>
 
                         {paymentLink && (
@@ -362,10 +383,8 @@ export default function AdminRequestsPage() {
     });
 
     return (
-        <RequireAdmin>
-            <AdminLayout>
-                <AdminRequestsInner />
-            </AdminLayout>
-        </RequireAdmin>
+        <AdminLayout>
+            <AdminRequestsInner />
+        </AdminLayout>
     );
 }
