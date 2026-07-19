@@ -1,27 +1,19 @@
 import apiFetch from "./api";
 
-export type Destination = {
+export interface Destination {
   destinationId: number;
   destinationGuid: string;
   destinationName: string;
   slug: string;
   shortDescription: string;
-  longDescription: string;
   heroImage: string;
-  region: string;
-  tagline: string;
-  circuit: string;
   displayOrder: number;
   isFeatured: boolean;
   isActive: boolean;
-};
+}
 
-export const destinationService = {
+export const destinationApi = {
   async getAll(): Promise<Destination[]> {
     return await apiFetch<Destination[]>("/Destination");
-  },
-
-  async getBySlug(slug: string): Promise<Destination> {
-    return await apiFetch<Destination>(`/Destination/${slug}`);
   },
 };
